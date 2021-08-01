@@ -30,33 +30,18 @@ jobs:
         java-package: jdk # (jre, jdk, or jdk+fx) - defaults to jdk
         architecture: x64 # (x64 or x86) - defaults to x64
 
-
-    # We get the last version of Fiji, might need to change it as the same as CI.yml
-    - name: get Fiji(ImageJ) zip
-      run: wget https://downloads.imagej.net/fiji/latest/fiji-linux64.zip
-      
-    - name: unzip Fiji
-      run: unzip fiji-linux64.zip 
-
     - name: Install Dependencies
-      run: npm install
+      run: yarn
       
     - name: Build
-      run: npm run build
+      run: yarn build
 
     - name: Run tests
-      run: npm run test
+      run: yarn test
 
     # See as a comment coverage without e2e
     - uses: romeovs/lcov-reporter-action@v0.2.16
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         lcov-file: ./coverage/lcov.info
-
-    - name: create .env File
-      run: printf "RUN_E2E_TESTS='true'\nIMAGEJ_DIRECTORY_INSTALLED='${{ github.workspace }}/Fiji.app'\n" > ".env"
-    
-    # See tests with e2e!
-    - name: Run tests
-      run: npm run test
 
