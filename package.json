@@ -36,7 +36,12 @@
   "private": true,
   "license": "Apache-2.0",
   "dependencies": {
+    "@kmamal/sdl": "^0.3.4",
     "dotenv": "^8.2.0",
+    "opencv4nodejs": "^5.6.0",
     "tslib": "^2.0.1"
+  },
+  "opencv4nodejs": {
+    "autoBuildFlags": "-DCMAKE_BUILD_TYPE=Release -DWITH_LIBV4L=ON"
   }
 }
