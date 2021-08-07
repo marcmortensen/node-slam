@@ -1,5 +1,5 @@
 import * as cv from 'opencv4nodejs';
-import { ORBDetector, Point2 } from 'opencv4nodejs';
+import { Mat, ORBDetector, Point2 } from 'opencv4nodejs';
 import {SCREEN_WIDTH, SCREEN_HEIGHT} from './main'
 export interface TupleKeyPoints {
   pt1: cv.Point2;
@@ -26,7 +26,7 @@ class Extractor {
       this.focalDistance = K.at(0,0);
     }
   
-    extract(frame: cv.Mat): {RtMatrix: cv.Mat, matches: TupleKeyPoints[]} {
+    extract(frame: cv.Mat): {rotationTranslationMatrix: cv.Mat, matches: TupleKeyPoints[]} {
 
         if (frame.empty) {
             return null;
@@ -40,7 +40,7 @@ class Extractor {
     
         // Matching
         let matches: TupleKeyPoints[] = [];
-        let RtMatrix: cv.Mat = null;
+        let rotationTranslationMatrix: cv.Mat = null;
         if (this.lastDescriptors!= null) {
           const bruteForceMatches = cv.matchKnnBruteForceHamming(descriptors,this.lastDescriptors, 2);
           
@@ -50,8 +50,8 @@ class Extractor {
             if (match.distance < 0.75*n.distance) {
               matches.push({
                 // Normalize coords
-                pt1: this.normalise(keyPoints[match.queryIdx].pt),
-                pt2: this.normalise(this.lastKeypoints[match.trainIdx].pt)
+                pt1: this.normalize(keyPoints[match.queryIdx].pt),
+                pt2: this.normalize(this.lastKeypoints[match.trainIdx].pt)
               })
             }
           })
@@ -63,21 +63,30 @@ class Extractor {
             const center = new Point2(SCREEN_WIDTH/2,SCREEN_HEIGHT/2);
             
             const {E,mask} = cv.findEssentialMat(p1, p2, this.focalDistance, center, cv.FM_RANSAC, 0.99,0.005);
-            const res = cv.recoverPose(E,p1,p2,this.focalDistance, center);
+            const {R, T} = cv.recoverPose(E,p1,p2,this.focalDistance, center);
+            const rotationArray = R.getDataAsArray();
 
-            RtMatrix= res.R;
-            
+            console.log(`R -> ${R.getDataAsArray()}`);
+
+            rotationTranslationMatrix = new Mat([
+              [rotationArray[0][0],rotationArray[0][1],rotationArray[0][2], T.x],
+              [rotationArray[1][0],rotationArray[1][1],rotationArray[1][2], T.y],
+              [rotationArray[2][0],rotationArray[2][1],rotationArray[2][2], T.z]]
+              , cv.CV_32F);
+
+              console.log(`rotationTranslationMatrix -> ${rotationTranslationMatrix.getDataAsArray()}`);
+
             matches = mask.getDataAsArray()
             .map((elem, index) => 
               elem[0]?  matches[index] : null
             ).filter((e) => e!==null)
           }
-
         }
         this.lastDescriptors = descriptors;
         this.lastKeypoints = keyPoints;
         console.log(`nMatches: ${matches.length}`);
-        return {RtMatrix, matches}
+        return {rotationTranslationMatrix, matches}
+    
       }
       catch(e) {
         console.error(e);
@@ -85,7 +94,7 @@ class Extractor {
       }
     }
 
-    normalise(unnormalisedPoint: cv.Point2): cv.Point2 { 
+    normalize(unnormalisedPoint: cv.Point2): cv.Point2 { 
 
       // [1,0,x]
       // [0,1,y]
@@ -97,7 +106,7 @@ class Extractor {
       return new Point2(res[0][2], res[1][2]);
     }
 
-    denormalise (normalizedPoint: cv.Point2): cv.Point2 {
+    denormalize (normalizedPoint: cv.Point2): cv.Point2 {
       const normalisedMatrix= new cv.Mat([[1, 0, normalizedPoint.x], [0, 1, normalizedPoint.y],[0,0,1]], cv.CV_32F);
 
       const res = this.K.matMul(normalisedMatrix).getDataAsArray();
