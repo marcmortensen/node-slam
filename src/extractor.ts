@@ -1,6 +1,6 @@
 import * as cv from 'opencv4nodejs';
 import { ORBDetector, Point2 } from 'opencv4nodejs';
-
+import {SCREEN_WIDTH, SCREEN_HEIGHT} from './main'
 export interface TupleKeyPoints {
   pt1: cv.Point2;
   pt2: cv.Point2;
@@ -14,18 +14,19 @@ class Extractor {
     lastKeypoints: cv.KeyPoint[];
     K: cv.Mat;
     KInverted: cv.Mat;
+    focalDistance : number;
   
     constructor(K: cv.Mat) {
         
       this.orb = new ORBDetector(3000);  
       this.lastDescriptors = null;
       this.lastKeypoints = null;
-      this.KInverted = K.inv();
       this.K = K;
-      
+      this.KInverted = K.inv();
+      this.focalDistance = K.at(0,0);
     }
   
-    extract(frame: cv.Mat): {keyPoints: cv.KeyPoint[], descriptors: cv.Mat, matches: TupleKeyPoints[]} {
+    extract(frame: cv.Mat): {RtMatrix: cv.Mat, matches: TupleKeyPoints[]} {
 
         if (frame.empty) {
             return null;
@@ -39,30 +40,32 @@ class Extractor {
     
         // Matching
         let matches: TupleKeyPoints[] = [];
+        let RtMatrix: cv.Mat = null;
         if (this.lastDescriptors!= null) {
           const bruteForceMatches = cv.matchKnnBruteForceHamming(descriptors,this.lastDescriptors, 2);
-
           
           bruteForceMatches.forEach((elem) => {
             const match = elem[0];
             const n = elem[1];
             if (match.distance < 0.75*n.distance) {
-              matches.push({pt1: keyPoints[match.queryIdx].pt, pt2: this.lastKeypoints[match.trainIdx].pt})//match);//{pt1: keyPoints[match.queryIdx].pt, pt2: this.lastKeypoints[match.trainIdx].pt})
-              //console.log(`PX: x -> ${keyPoints[match.queryIdx].pt.x}, x2-> ${this.lastKeypoints[match.trainIdx].pt.x}`);
-              //console.log(`PY: y -> ${keyPoints[match.queryIdx].pt.y}, y2-> ${this.lastKeypoints[match.trainIdx].pt.y}`);
+              matches.push({
+                // Normalize coords
+                pt1: this.normalise(keyPoints[match.queryIdx].pt),
+                pt2: this.normalise(this.lastKeypoints[match.trainIdx].pt)
+              })
             }
-            
           })
 
-
-
           // Filter fundamental matrix
-
           if(bruteForceMatches.length> 0)  {
-            // Normalize coords
-            const p1 = matches.map((p) => this.normalise(p.pt1));
-            const p2 = matches.map((p) => this.normalise(p.pt2));
-            const {mask} = cv.findFundamentalMat(p1, p2,cv.FM_RANSAC, 1, 0.99);
+            const p1 = matches.map((p) => p.pt1);
+            const p2 = matches.map((p) => p.pt2);
+            const center = new Point2(SCREEN_WIDTH/2,SCREEN_HEIGHT/2);
+            
+            const {E,mask} = cv.findEssentialMat(p1, p2, this.focalDistance, center, cv.FM_RANSAC, 0.99,0.005);
+            const res = cv.recoverPose(E,p1,p2,this.focalDistance, center);
+
+            RtMatrix= res.R;
             
             matches = mask.getDataAsArray()
             .map((elem, index) => 
@@ -74,7 +77,7 @@ class Extractor {
         this.lastDescriptors = descriptors;
         this.lastKeypoints = keyPoints;
         console.log(`nMatches: ${matches.length}`);
-        return {keyPoints, descriptors, matches}
+        return {RtMatrix, matches}
       }
       catch(e) {
         console.error(e);
@@ -83,18 +86,22 @@ class Extractor {
     }
 
     normalise(unnormalisedPoint: cv.Point2): cv.Point2 { 
-      const unnormalisedMatrix = new cv.Mat([[unnormalisedPoint.x, 0 ,0], [0,unnormalisedPoint.y,0],[0,0,1]], cv.CV_32F);
-      const unnormalisedTransposed = unnormalisedMatrix.transpose();
+
+      // [1,0,x]
+      // [0,1,y]
+      // [0,0,1]]
+
+      const unnormalisedMatrix = new cv.Mat([[1, 0, unnormalisedPoint.x], [0, 1, unnormalisedPoint.y],[0,0,1]], cv.CV_32F);
       const res = 
-        this.KInverted.matMul(unnormalisedTransposed).transpose().getDataAsArray();
-      return new Point2(res[0][0], res[1][1]);
+        this.KInverted.matMul(unnormalisedMatrix).getDataAsArray();
+      return new Point2(res[0][2], res[1][2]);
     }
 
     denormalise (normalizedPoint: cv.Point2): cv.Point2 {
-      const normalisedMatrix= new cv.Mat([[normalizedPoint.x, 0 ,0], [0,normalizedPoint.y,0],[0,0,1]], cv.CV_32F);
+      const normalisedMatrix= new cv.Mat([[1, 0, normalizedPoint.x], [0, 1, normalizedPoint.y],[0,0,1]], cv.CV_32F);
 
       const res = this.K.matMul(normalisedMatrix).getDataAsArray();
-      return new Point2(res[0][0], res[1][1]);
+      return new Point2(res[0][2], res[1][2]);
     }
 
 }

@@ -3,8 +3,8 @@ import { Mat, Size } from 'opencv4nodejs';
 import sdl from '@kmamal/sdl'
 import { Extractor } from './extractor';
 
-const SCREEN_HEIGHT = 540;
-const SCREEN_WIDTH = 960;
+export const SCREEN_HEIGHT = 540;
+export const SCREEN_WIDTH = 960;
 const capture = new cv.VideoCapture("assets/test_countryroad.mp4");
 
 const window = sdl.video.createWindow({ title: "My video",  width: SCREEN_WIDTH, height: SCREEN_HEIGHT});
@@ -12,7 +12,11 @@ window.show();
 
 const stride = SCREEN_WIDTH *3;
 
-const focalDistance = 1 //[focalDistance,0,SCREEN_WIDTH],[0,focalDistance,SCREEN_HEIGHT],[0,0,1]]
+const focalDistance = 270; 
+
+// [focalDistance,0,SCREEN_WIDTH]
+// [0,focalDistance,SCREEN_HEIGHT]
+// [0,0,1]]
 const K = new cv.Mat([[focalDistance,0,0],[0,focalDistance,0],[SCREEN_WIDTH,SCREEN_HEIGHT,1]], cv.CV_32F)
 
 const extractor = new Extractor(K);
@@ -30,11 +34,10 @@ const processImage = async (old_frame: Mat, frame: Mat) => {
     for (const match of newFrame.matches) {
         const pt1= extractor.denormalise(match.pt1);
         const pt2= extractor.denormalise(match.pt2);
+        console.log(`RtMATRIX: ${newFrame.RtMatrix.getDataAsArray()}`)
         image.drawLine(pt1,pt2)
     }
 
-    //const newIamge = cv.drawKeyPoints(image, newFrame.keyPoints);
-    //const imageWithDescriptorss = cv.drawMatches(frame, old_frame, keyPoints, old.keyPoints, matches);
     // Draw to the screen
     window.render(SCREEN_WIDTH, SCREEN_HEIGHT, stride, 'bgr24', image.getData());
 } 
