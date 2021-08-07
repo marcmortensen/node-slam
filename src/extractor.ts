@@ -33,7 +33,7 @@ class Extractor {
         const descriptors = this.orb.compute(frame, keyPoints);
     
         // Matching
-        const matches: TupleKeyPoints[] = [];
+        let matches: TupleKeyPoints[] = [];
         if (this.lastDescriptors!= null) {
           const bruteForceMatches = cv.matchKnnBruteForceHamming(descriptors,this.lastDescriptors, 2);
 
@@ -48,6 +48,19 @@ class Extractor {
             }
             
           })
+
+          // Filter findamental matrix
+
+          if(bruteForceMatches.length> 0)  {
+            const p1 = matches.map((p) => p.pt1);
+            const p2 = matches.map((p) => p.pt2);
+            const {mask} = cv.findFundamentalMat(p1, p2,cv.FM_RANSAC, 1, 0.99);
+            
+            matches = mask.getDataAsArray()
+            .map((elem, index) => 
+              elem[0]?  matches[index] : null
+            ).filter((e) => e!==null)
+          }
 
         }
         this.lastDescriptors = descriptors;
