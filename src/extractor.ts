@@ -4,6 +4,8 @@ import {SCREEN_WIDTH, SCREEN_HEIGHT} from './main'
 export interface TupleKeyPoints {
   pt1: cv.Point2;
   pt2: cv.Point2;
+  idx1: number;
+  idx2: number;
 }
 
 
@@ -49,14 +51,16 @@ class Extractor {
             const n = elem[1];
             if (match.distance < 0.75*n.distance) {
               matches.push({
-                // Normalize coords
+                // Normalize coords && Keep around indices
                 pt1: this.normalize(keyPoints[match.queryIdx].pt),
-                pt2: this.normalize(this.lastKeypoints[match.trainIdx].pt)
+                pt2: this.normalize(this.lastKeypoints[match.trainIdx].pt),
+                idx1: match.queryIdx,
+                idx2: match.trainIdx
               })
             }
           })
 
-          // Filter fundamental matrix
+          // Filter Essential matrix
           if(bruteForceMatches.length> 0)  {
             const p1 = matches.map((p) => p.pt1);
             const p2 = matches.map((p) => p.pt2);
@@ -66,19 +70,15 @@ class Extractor {
             const {R, T} = cv.recoverPose(E,p1,p2,this.focalDistance, center);
             const rotationArray = R.getDataAsArray();
 
-            console.log(`R -> ${R.getDataAsArray()}`);
-
             rotationTranslationMatrix = new Mat([
               [rotationArray[0][0],rotationArray[0][1],rotationArray[0][2], T.x],
               [rotationArray[1][0],rotationArray[1][1],rotationArray[1][2], T.y],
               [rotationArray[2][0],rotationArray[2][1],rotationArray[2][2], T.z]]
               , cv.CV_32F);
 
-              console.log(`rotationTranslationMatrix -> ${rotationTranslationMatrix.getDataAsArray()}`);
-
             matches = mask.getDataAsArray()
             .map((elem, index) => 
-              elem[0]?  matches[index] : null
+              elem[0] ?  matches[index] : null
             ).filter((e) => e!==null)
           }
         }
@@ -96,10 +96,6 @@ class Extractor {
 
     normalize(unnormalisedPoint: cv.Point2): cv.Point2 { 
 
-      // [1,0,x]
-      // [0,1,y]
-      // [0,0,1]]
-
       const unnormalisedMatrix = new cv.Mat([[1, 0, unnormalisedPoint.x], [0, 1, unnormalisedPoint.y],[0,0,1]], cv.CV_32F);
       const res = 
         this.KInverted.matMul(unnormalisedMatrix).getDataAsArray();
@@ -108,7 +104,6 @@ class Extractor {
 
     denormalize (normalizedPoint: cv.Point2): cv.Point2 {
       const normalisedMatrix= new cv.Mat([[1, 0, normalizedPoint.x], [0, 1, normalizedPoint.y],[0,0,1]], cv.CV_32F);
-
       const res = this.K.matMul(normalisedMatrix).getDataAsArray();
       return new Point2(res[0][2], res[1][2]);
     }
