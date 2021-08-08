@@ -1,8 +1,11 @@
 import * as cv from 'opencv4nodejs';
-import { Mat, Point2, Size} from 'opencv4nodejs';
+import { Mat, Size} from 'opencv4nodejs';
 import sdl from '@kmamal/sdl'
 import { Frame } from './frame';
 import { Extractor } from './extractor';
+import { Point, Point3dIntefiable } from './point';
+import { Map } from './map';
+import { extract3DFromPoseMap } from './pointRetrieval';
 
 export const SCREEN_HEIGHT = 540;
 export const SCREEN_WIDTH = 960;
@@ -23,14 +26,21 @@ const K = new cv.Mat([
   [0,focalDistance,0],
   [SCREEN_WIDTH,SCREEN_HEIGHT,1]], cv.CV_32F)
 
-const frames: Frame[] = [];
-
-
-
-const triangulate = (img: Mat, pos2:Mat,  pts1: Point2[], pts2: Point2[]): Mat => {
-  return img.triangulatePoints(pos2, pts1, pts2).transpose()
+const add3DPoints = (points3d: Point3dIntefiable[], frame: Frame, oldFrame: Frame): void => {
+  for (const {xyz,idx1, idx2} of points3d) {
+    const pt = new Point(xyz, map);
+    pt.addObservation(frame,idx1);
+    pt.addObservation(oldFrame, idx2);
+  }
 }
 
+const add2DPoints = (image: cv.Mat, frame: Frame): void => {
+  for (const match of frame.matches) {
+    const pt1= frame.denormalize(match.pt1);
+    const pt2= frame.denormalize(match.pt2);
+    image.drawLine(pt1,pt2)
+  }
+}
 
 const processImage = (image: Mat, extractor: Extractor) => {
     if (image.empty) {
@@ -38,59 +48,30 @@ const processImage = (image: Mat, extractor: Extractor) => {
     }
     const img = image.resize(new Size(SCREEN_WIDTH, SCREEN_HEIGHT));
 
-    const frame = new Frame(img, extractor);
+    new Frame(img, extractor, map);
 
-    if (frames.length < 1) {
-      frames.push(frame)
+    const frame =  map.frames.slice(-1)[0];
+    const oldFrame =  map.frames.slice(-2)[0];
+    if (map.frames.length -1 < 1 || frame.rotationTranslationMatrix === null) {
       return;
     }
-
-    const oldFrame = frames.slice(-1)[0];
-    const oldFramePose = oldFrame.pose;
-    // from array (4x4 Matrix)
-    const matData = [
-      [[oldFramePose.at(0,0)], [oldFramePose.at(0,1)], [oldFramePose.at(0,2)], [oldFramePose.at(0,3)]],
-      [[oldFramePose.at(1,0)], [oldFramePose.at(1,1)], [oldFramePose.at(1,2)], [oldFramePose.at(1,3)]],
-      [[oldFramePose.at(2,0)], [oldFramePose.at(2,1)], [oldFramePose.at(2,2)], [oldFramePose.at(2,3)]],
-      [[0], [0], [0], [1]]
-    ];
-    const matData4X4 = new cv.Mat(matData, cv.CV_32F);
-
-    frame.pose = 
-      frame.rotationTranslationMatrix.matMul(oldFramePose.rows === 4 ?  oldFramePose: matData4X4)
-    
-    frames.push(frame)
-
-
-    const triangulateCoords = triangulate(
-      frame.pose,
-      oldFramePose.rows === 3 ? oldFramePose : new cv.Mat([[1,0,0,0],[0,1,0,0],[0,0,1,0]], cv.CV_32F),
-      frame.matches.map((m) => m.pt1),
-      frame.matches.map((m) => m.pt2),
-    )
 
     // Discard noise + points behind camara
     // Homogeneous 3-D coords
-    const points3D = triangulateCoords.getDataAsArray()
-      .map(elem => elem.map(data => data/elem[3]))
-      .filter(elem => Math.abs(elem[3]) > 0.005 &&  elem[2] > 0)
+    const points3D = extract3DFromPoseMap(map)
+    add3DPoints(points3D, frame, oldFrame)
 
-    console.log(points3D.length);
-
-    if (frames.slice(-1)[0].rotationTranslationMatrix === null){
-      return;
-    }
-    for (const match of frames.slice(-1)[0].matches) {
-        const pt1= frame.denormalize(match.pt1);
-        const pt2= frame.denormalize(match.pt2);
-        img.drawLine(pt1,pt2)
-    }
+    // Paint matches 2D
+    add2DPoints(img, frame);
+    // 3D Display
+    map.display();
 
     // Draw to the screen
     window.render(SCREEN_WIDTH, SCREEN_HEIGHT, stride, 'bgr24', img.getData());
 } 
 
 const extractor = new Extractor(K);
+const map = new Map();
 let image: Mat;
 
 try {

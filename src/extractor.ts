@@ -1,6 +1,7 @@
 import * as cv from 'opencv4nodejs';
 import { Mat, ORBDetector, Point2 } from 'opencv4nodejs';
 import {SCREEN_WIDTH, SCREEN_HEIGHT} from './main'
+
 export interface TupleKeyPoints {
   pt1: cv.Point2;
   pt2: cv.Point2;
