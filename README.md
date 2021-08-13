@@ -3,7 +3,7 @@
 MonoSlam a toy implementation of monocular SLAM written in NodeJs.
 
 ![Video input 2D](assets/img/video_example.jpg?raw=true "Video input")
-![Tracking movement 2D points](assets/img/tracking_key_points.jpg.jpg?raw=true "Tracking movement 2D points")
+![Tracking movement 2D points](assets/img/tracking_key_points.jpg?raw=true "Tracking movement 2D points")
 ![3D points](assets/img/3D_example.png "3D points")
 
 MonoSlam is a feature based SLAM that uses OpenCV as feature extractor and matcher. As of now, this project is focused on getting the 3D cordinates of all the matched features, sadly at the moment i wasan't able to find a good 3D plotter in sdl (Nodejs).
