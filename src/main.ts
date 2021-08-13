@@ -7,6 +7,8 @@ import { Point, Point3dIntefiable } from './point';
 import { Map } from './map';
 import { extract3DFromPoseMap } from './pointRetrieval';
 
+import {writeFile} from 'fs';
+
 export const SCREEN_HEIGHT = 540;
 export const SCREEN_WIDTH = 960;
 const capture = new cv.VideoCapture("assets/test_countryroad.mp4");
@@ -14,7 +16,7 @@ const capture = new cv.VideoCapture("assets/test_countryroad.mp4");
 const window = sdl.video.createWindow({ title: "My video",  width: SCREEN_WIDTH, height: SCREEN_HEIGHT});
 window.show();
 
-const stride = SCREEN_WIDTH *3;
+export const stride = SCREEN_WIDTH *3;
 
 const focalDistance = 270; 
 
@@ -86,5 +88,13 @@ catch (e) {
   console.log(e);
   process.exit(1);
 }
+  const allPoints = map.points.map(p => [p.x, p.y,p.z]) 
+  writeFile("points.txt", allPoints.join("\n"), function(err) {
+    if(err) {
+        return console.log(err);
+    }
+    console.log("The Points file was saved!");
+  }); 
+  console.log("Closing program!");
   process.exit(1);
  

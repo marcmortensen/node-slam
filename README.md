@@ -2,6 +2,19 @@
 
 MonoSlam a toy implementation of monocular SLAM written in NodeJs.
 
+![Video input 2D](assets/img/video_example.jpg?raw=true "Video input")
+![Tracking movement 2D points](assets/img/tracking_key_points.jpg.jpg?raw=true "Tracking movement 2D points")
+![3D points](assets/img/3D_example.png "3D points")
+
+MonoSlam is a feature based SLAM that uses OpenCV as feature extractor and matcher. As of now, this project is focused on getting the 3D cordinates of all the matched features, sadly at the moment i wasan't able to find a good 3D plotter in sdl (Nodejs).
+
+## How does it work
+
+1. Find a good video where you want to apply SLAM.
+1. Let the algorithm find the beast matching features and triangulate them to obtain the 3D global coords.
+1. ??? 
+1. profit.
+
 ## Getting Started
 
 This project is intended to be used with the latest Active LTS release of Node.js.
@@ -11,8 +24,9 @@ This project is intended to be used with the latest Active LTS release of Node.j
 1. Download the source code of this project as a zip or with git
 1. open a terminal and navigate to the project 
 1. execute "yarn"
-1. run "yarn build" 
-1. run "yarn start"
+1. run "yarn build" if it fails modify signature of OpenCV triangulatePoints in (Mat.d.ts) adding a new param at position 0 with type Mat, leaving the rest as it was.
+1. run "yarn start", 
+1. If the result is not as desirable as wanted, adjust the distance of the focal point, or change the number of MAX_FEATURES to detect.
 
 ## Available Scripts
 

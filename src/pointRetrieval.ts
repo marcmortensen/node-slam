@@ -27,7 +27,6 @@ const extract3DFromPoseMap = (map: Map): Point3dIntefiable[] => {
 
     frame.pose = 
       frame.rotationTranslationMatrix.matMul(oldFramePose.rows === 4 ?  oldFramePose: matData4X4)
-    
 
     const triangulateCoords = triangulate(
       frame.pose,

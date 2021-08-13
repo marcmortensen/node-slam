@@ -8,6 +8,7 @@ export interface TupleKeyPoints {
   idx1: number;
   idx2: number;
 }
+const MAX_FEATURES = 3000;
 
 
 class Extractor {
@@ -21,7 +22,7 @@ class Extractor {
   
     constructor(K: cv.Mat) {
         
-      this.orb = new ORBDetector(3000);  
+      this.orb = new ORBDetector(MAX_FEATURES);  
       this.lastDescriptors = null;
       this.lastKeypoints = null;
       this.K = K;

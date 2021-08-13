@@ -1,6 +1,7 @@
 import { Frame } from './frame';
 import { Point } from './point';
 
+
 export class Map {
 
     frames: Frame[];
@@ -13,9 +14,7 @@ export class Map {
     }
 
     display(): void {
-        for (const frame of this.frames) {
-            console.log(frame.id);
-        }
+        // THIS IS WHERE WE WOULD DISPLAY SLAM
     }
 
 }
